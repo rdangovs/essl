@@ -193,7 +193,7 @@ def ssl_loop(args, encoder=None):
         shuffle=True,
         batch_size=args.bsz,
         pin_memory=True,
-        num_workers=16,
+        num_workers=args.num_workers,
         drop_last=True
     )
     memory_loader = torch.utils.data.dataLoader(
@@ -203,7 +203,7 @@ def ssl_loop(args, encoder=None):
         shuffle=False,
         batch_size=args.bsz,
         pin_memory=True,
-        num_workers=16,
+        num_workers=args.num_workers,
     )
     test_loader = torch.utils.data.dataLoader(
         dataset=torchvision.datasets.CIFAR10(
@@ -212,7 +212,7 @@ def ssl_loop(args, encoder=None):
         shuffle=False,
         batch_size=args.bsz,
         pin_memory=True,
-        num_workers=16
+        num_workers=args.num_workers
     )
 
     # models
@@ -339,7 +339,7 @@ def eval_loop(encoder, file_to_update, ind=None):
         shuffle=True,
         batch_size=256,
         pin_memory=True,
-        num_workers=16,
+        num_workers=args.num_workers,
         drop_last=True
     )
     test_loader = torch.utils.data.dataLoader(
@@ -347,7 +347,7 @@ def eval_loop(encoder, file_to_update, ind=None):
         shuffle=False,
         batch_size=256,
         pin_memory=True,
-        num_workers=16
+        num_workers=args.num_workers
     )
 
     classifier = nn.Linear(512, 10).cuda()
@@ -430,7 +430,7 @@ if __name__ == '__main__':
     parser.add_argument('--path_dir', default='../experiment', type=str)
     parser.add_argument('--seed', default=42, type=int)
     parser.add_argument('--lmbd', default=0.0, type=float)
-    parser.add_argument('--num_worker', default=16, type=int)
+    parser.add_argument('--num_workers', default=16, type=int)
     parser.add_argument('--checkpoint_path', default=None, type=str)
     args = parser.parse_args()
 
