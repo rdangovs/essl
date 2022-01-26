@@ -19,7 +19,7 @@ from utils import gather_from_all, GaussianBlur, Solarization
 
 
 parser = argparse.ArgumentParser(description='RotNet Training')
-parser.add_argument('--data', type=Path, metavar='DIR', default="/datasets01/imagenet_full_size/061417",
+parser.add_argument('--data', type=Path, metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--workers', default=8, type=int, metavar='N',
                     help='number of data loader workers')
@@ -33,11 +33,10 @@ parser.add_argument('--weight-decay', default=1e-6, type=float, metavar='W',
                     help='weight decay')
 parser.add_argument('--print-freq', default=10, type=int, metavar='N',
                     help='print frequency')
-parser.add_argument('--checkpoint-dir', default='/checkpoint/ljng/latent-noise/tmp/', type=Path,
+parser.add_argument('--checkpoint-dir', type=Path,
                     metavar='DIR', help='path to checkpoint directory')
-parser.add_argument('--name', type=str, default='test')
-parser.add_argument('--rotation', default=0.0, type=float,
-                    default="coefficient of rotation loss")
+parser.add_argument('--rotation', default=0.4, type=float,
+                    help="coefficient of rotation loss")
 
 
 def main():
@@ -64,7 +63,7 @@ def main_worker(gpu, args):
         backend='nccl', init_method=args.dist_url,
         world_size=args.world_size, rank=args.rank)
 
-    args.checkpoint_dir = args.checkpoint_dir / args.name
+    args.checkpoint_dir = args.checkpoint_dir
     if args.rank == 0:
         args.checkpoint_dir.mkdir(parents=True, exist_ok=True)
         stats_file = open(args.checkpoint_dir / 'stats.txt', 'a', buffering=1)
@@ -142,12 +141,12 @@ def main_worker(gpu, args):
                          optimizer=optimizer.state_dict())
             torch.save(state, args.checkpoint_dir / 'checkpoint.pth')
         
-        if args.rank == 0:
-            # save final model
-            torch.save(dict(backbone=model.module.backbone.state_dict(),
-                            projector=model.module.projector.state_dict(),
-                            head=model.module.online_head.state_dict()),
-                    '/checkpoint/ljng/latent-noise/pretrained/' + args.name + '-resnet50.pth')
+    if args.rank == 0:
+        # save final model
+        torch.save(dict(backbone=model.module.backbone.state_dict(),
+                        projector=model.module.projector.state_dict(),
+                        head=model.module.online_head.state_dict()),
+                args.checkpoint_dir / 'resnet50.pth')
 
 
 def adjust_learning_rate(args, optimizer, loader, step):
@@ -313,7 +312,6 @@ class Transform:
                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_rotation = transforms.Compose([
-            # transforms.RandomResizedCrop(args.crop, scale=(0.05, 0.14)), # 0.08, 1.0
             transforms.RandomResizedCrop(96, scale=(0.08, 1.0)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(

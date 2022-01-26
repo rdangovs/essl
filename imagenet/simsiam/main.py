@@ -30,7 +30,7 @@ model_names = sorted(name for name in models.__dict__
     and callable(models.__dict__[name]))
 
 parser = argparse.ArgumentParser(description='PyTorch ImageNet Training')
-parser.add_argument('--data', metavar='DIR', default="/datasets01/imagenet_full_size/061417",
+parser.add_argument('--data', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('-a', '--arch', metavar='ARCH', default='resnet50',
                     choices=model_names,
@@ -57,8 +57,6 @@ parser.add_argument('--wd', '--weight-decay', default=1e-4, type=float,
                     dest='weight_decay')
 parser.add_argument('-p', '--print-freq', default=10, type=int,
                     metavar='N', help='print frequency (default: 10)')
-parser.add_argument('--resume', default='', type=str, metavar='PATH',
-                    help='path to latest checkpoint (default: none)')
 parser.add_argument('--world-size', default=-1, type=int,
                     help='number of nodes for distributed training')
 parser.add_argument('--rank', default=-1, type=int,
@@ -84,10 +82,9 @@ parser.add_argument('--pred-dim', default=512, type=int,
                     help='hidden dimension of the predictor (default: 512)')
 parser.add_argument('--fix-pred-lr', action='store_true', default=True,
                     help='Fix learning rate for the predictor')
-parser.add_argument('--name', type=str)
-
+parser.add_argument('--checkpoint-dir', type=str)
 parser.add_argument('--rotation', default=0.0, type=float)
-parser.add_argument('--crop', default=96, type=int)
+
 
 def main():
     args = parser.parse_args()
@@ -206,25 +203,6 @@ def main_worker(gpu, ngpus_per_node, args):
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
-    # optionally resume from a checkpoint
-    if args.resume:
-        args.resume = '/checkpoint/ljng/latent-noise/tmp/' + args.name + '.pth'
-        if os.path.isfile(args.resume):
-            print("=> loading checkpoint '{}'".format(args.resume))
-            if args.gpu is None:
-                checkpoint = torch.load(args.resume)
-            else:
-                # Map model to be loaded to specified single gpu.
-                loc = 'cuda:{}'.format(args.gpu)
-                checkpoint = torch.load(args.resume, map_location=loc)
-            args.start_epoch = checkpoint['epoch']
-            model.load_state_dict(checkpoint['state_dict'])
-            optimizer.load_state_dict(checkpoint['optimizer'])
-            print("=> loaded checkpoint '{}' (epoch {})"
-                  .format(args.resume, checkpoint['epoch']))
-        else:
-            print("=> no checkpoint found at '{}'".format(args.resume))
-
     cudnn.benchmark = True
 
     train_dataset = torchvision.datasets.ImageFolder(args.data + '/train', Transform(args))
@@ -253,7 +231,7 @@ def main_worker(gpu, ngpus_per_node, args):
                 'arch': args.arch,
                 'state_dict': model.state_dict(),
                 'optimizer' : optimizer.state_dict(),
-            }, '/checkpoint/ljng/latent-noise/tmp/' + args.name + '.pth')
+            }, args.checkpoint_dir + '/resnet50.pth')
 
 
 def train(train_loader, model, criterion, optimizer, epoch, args):
@@ -279,16 +257,8 @@ def train(train_loader, model, criterion, optimizer, epoch, args):
         if args.rotation:
             rotated_images, rotated_labels = rotate_images(y3, args.gpu)
 
-
-    # for i, (images, _) in enumerate(train_loader):
-        # measure data loading time
         data_time.update(time.time() - end)
 
-        # if args.gpu is not None:
-        #     images[0] = images[0].cuda(args.gpu, non_blocking=True)
-        #     images[1] = images[1].cuda(args.gpu, non_blocking=True)
-
-        # compute output and loss
         with torch.cuda.amp.autocast():
             p1, p2, z1, z2 = model(x1=y1, x2=y2)
             loss = -(criterion(p1, z2).mean() + criterion(p2, z1).mean()) * 0.5
@@ -421,7 +391,7 @@ class Transform:
                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_rotation = transforms.Compose([
-            transforms.RandomResizedCrop(args.crop, scale=(0.05, 0.14)),  # 64 to fit in memory
+            transforms.RandomResizedCrop(96, scale=(0.05, 0.14)),
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
                 [transforms.ColorJitter(brightness=0.4, contrast=0.4,

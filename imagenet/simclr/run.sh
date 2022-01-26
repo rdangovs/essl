@@ -1,6 +1,6 @@
 #!/bin/bash 
-#SBATCH --job-name=1-26-essl-barlowtwins-0-100ep
-#SBATCH --output=/checkpoint/ljng/essl/train-log/1-26-essl-barlowtwins-0-100ep.out 
+#SBATCH --job-name=1-26-essl-simclr-0.4-100ep
+#SBATCH --output=/checkpoint/ljng/essl/train-log/1-26-essl-simclr-0.4-100ep.out 
 #SBATCH --partition=learnlab
 #SBATCH --nodes=4
 #SBATCH --ntasks-per-node=1
@@ -14,5 +14,5 @@
 srun --label python main.py \
     --data /datasets01/imagenet_full_size/061417 \
     --epochs 100 \
-    --rotation 0 \
-	--name /checkpoint/ljng/essl/1-26-essl-barlowtwins-0-100ep
+    --rotation 0.4 \
+	--name /checkpoint/ljng/essl/1-26-essl-simclr-0.4-100ep
