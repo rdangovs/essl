@@ -224,7 +224,7 @@ class SimCLR(nn.Module):
         return logits
 
 
-def infoNCE(nn, p, temperature=0.1):
+def infoNCE(nn, p, temperature=0.2):
     nn = torch.nn.functional.normalize(nn, dim=1)
     p = torch.nn.functional.normalize(p, dim=1)
     nn = gather_from_all(nn)

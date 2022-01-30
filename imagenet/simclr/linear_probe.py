@@ -3,7 +3,6 @@ import argparse
 import json
 import os
 import random
-import signal
 import sys
 import time
 import urllib
@@ -32,7 +31,7 @@ parser.add_argument('--batch-size', default=256, type=int, metavar='N',
                     help='mini-batch size')
 parser.add_argument('--lr-backbone', default=0.0, type=float, metavar='LR',
                     help='backbone base learning rate')
-parser.add_argument('--lr-classifier', default=0.1, type=float, metavar='LR',
+parser.add_argument('--lr-classifier', default=1.0, type=float, metavar='LR',
                     help='classifier base learning rate')
 parser.add_argument('--weight-decay', default=1e-6, type=float, metavar='W',
                     help='weight decay')
