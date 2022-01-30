@@ -161,7 +161,7 @@ def main_worker(gpu, args):
         torch.save(dict(backbone=model.module.backbone.state_dict(),
                         projector=model.module.projector.state_dict(),
                         head=model.module.online_head.state_dict()),
-                        args.checkpoint_dir / + 'resnet50.pth')
+                        args.checkpoint_dir / 'resnet50.pth')
 
 
 

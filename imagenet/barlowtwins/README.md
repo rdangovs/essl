@@ -4,4 +4,4 @@ python main.py --data <path-to-data> --checkpoint-dir <checkpoint-dir> --rotatio
 
 # Evaluation
 
-
+python linear_probe.py --data <path-to-data> --pretrained <path-to-pretrained>

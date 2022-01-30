@@ -14,7 +14,7 @@ import torch
 import torchvision
 
 parser = argparse.ArgumentParser(description='Evaluate resnet50 features on ImageNet')
-parser.add_argument('--data', type=Path, metavar='DIR', default="/datasets01/imagenet_full_size/061417",
+parser.add_argument('--data', type=Path, metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--weights', default='freeze', type=str,
                     choices=('finetune', 'freeze'),
@@ -36,8 +36,7 @@ parser.add_argument('--weight-decay', default=1e-6, type=float, metavar='W',
                     help='weight decay')
 parser.add_argument('--print-freq', default=100, type=int, metavar='N',
                     help='print frequency')
-parser.add_argument('--pretrained', type=str, default="/checkpoint/ljng/latent-noise/pretrained/")
-parser.add_argument('--name', default="test", type=str)
+parser.add_argument('--pretrained', type=str)
 
 
 def main():
@@ -64,7 +63,6 @@ def main_worker(gpu, args):
     model.fc = nn.Identity()
 
     # loading path
-    args.pretrained = args.pretrained + args.name + "-resnet50.pth"
     state_dict = torch.load(args.pretrained, map_location='cpu')
     model.load_state_dict(state_dict["backbone"])
     if args.weights == 'freeze':
@@ -114,8 +112,6 @@ def main_worker(gpu, args):
             train_dataset.samples.append(
                 (traindir / cls / fname, train_dataset.class_to_idx[cls]))
 
-    # train_dataset = torch.utils.data.Subset(train_dataset, range(256))
-    # val_dataset = torch.utils.data.Subset(val_dataset, range(128))
     train_sampler = torch.utils.data.distributed.DistributedSampler(train_dataset)
     kwargs = dict(batch_size=args.batch_size // args.world_size, num_workers=args.workers, pin_memory=True)
     train_loader = torch.utils.data.DataLoader(train_dataset, sampler=train_sampler, **kwargs)
