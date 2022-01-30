@@ -133,6 +133,9 @@ def main_worker(gpu, ngpus_per_node, args):
     if args.gpu is not None:
         print("Use GPU: {} for training".format(args.gpu))
 
+    if args.rank == 0:
+        args.checkpoint_dir.mkdir(parents=True, exist_ok=True)
+
     if args.distributed:
         if args.dist_url == "env://" and args.rank == -1:
             args.rank = int(os.environ["RANK"])
