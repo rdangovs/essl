@@ -1,6 +1,7 @@
 import os
 import math
 import time
+import copy
 import argparse
 
 import numpy as np
@@ -103,12 +104,11 @@ def info_nce_loss(z1, z2, temperature=0.5):
 class ProjectionMLP(nn.Module):
     def __init__(self, in_dim, hidden_dim, out_dim):
         super().__init__()
-        list_layers = [nn.Linear(in_dim, hidden_dim, bias=False),
-                       nn.BatchNorm1d(hidden_dim),
-                       nn.ReLU(inplace=True)]
-        list_layers += [nn.Linear(hidden_dim, out_dim, bias=False),
-                        nn.BatchNorm1d(out_dim, affine=False)]
-        self.net = nn.Sequential(*list_layers)
+        self.net = nn.Sequential(nn.Linear(in_dim, hidden_dim, bias=False),
+                                 nn.BatchNorm1d(hidden_dim),
+                                 nn.ReLU(inplace=True),
+                                 nn.Linear(hidden_dim, out_dim, bias=False),
+                                 nn.BatchNorm1d(out_dim, affine=False))
 
     def forward(self, x):
         return self.net(x)
@@ -186,7 +186,7 @@ def ssl_loop(args, encoder=None):
     file_to_update = open(os.path.join(args.path_dir, 'train_and_eval.log'), 'w')
 
     # dataset
-    train_loader = torch.utils.data.dataLoader(
+    train_loader = torch.utils.data.DataLoader(
         dataset=torchvision.datasets.CIFAR10(
             '../data', train=True, transform=ContrastiveLearningTransform(), download=True
         ),
@@ -196,7 +196,7 @@ def ssl_loop(args, encoder=None):
         num_workers=args.num_workers,
         drop_last=True
     )
-    memory_loader = torch.utils.data.dataLoader(
+    memory_loader = torch.utils.data.DataLoader(
         dataset=torchvision.datasets.CIFAR10(
             '../data', train=True, transform=single_transform, download=True
         ),
@@ -205,7 +205,7 @@ def ssl_loop(args, encoder=None):
         pin_memory=True,
         num_workers=args.num_workers,
     )
-    test_loader = torch.utils.data.dataLoader(
+    test_loader = torch.utils.data.DataLoader(
         dataset=torchvision.datasets.CIFAR10(
             '../data', train=False, transform=single_transform, download=True,
         ),
@@ -313,7 +313,7 @@ def ssl_loop(args, encoder=None):
         print(line_to_print)
 
         if e % args.save_every == 0:
-            torch.save(dict(epoch=0, state_dict=main_branch.state_dict()),
+            torch.save(dict(epoch=e, state_dict=main_branch.state_dict()),
                        os.path.join(args.path_dir, f'{e}.pth'))
 
     return main_branch.encoder, file_to_update
@@ -409,7 +409,7 @@ def main(args):
     encoder, file_to_update = ssl_loop(args)
     accs = []
     for i in range(5):
-        accs.append(eval_loop(encoder, file_to_update, i))
+        accs.append(eval_loop(copy.deepcopy(encoder), file_to_update, i))
     line_to_print = f'aggregated linear probe: {np.mean(accs):.3f} +- {np.std(accs):.3f}'
     file_to_update.write(line_to_print + '\n')
     file_to_update.flush()
