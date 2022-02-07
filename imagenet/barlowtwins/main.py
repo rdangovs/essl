@@ -39,11 +39,14 @@ parser.add_argument('--print-freq', default=100, type=int, metavar='N',
 parser.add_argument('--checkpoint-dir', type=Path,
                     metavar='DIR', help='path to checkpoint directory')
 parser.add_argument('--rotation', default=0.0, type=float)
+parser.add_argument('--scale', default='0.05,0.14', type=str)
 
 
 def main():
     args = parser.parse_args()
     args.ngpus_per_node = torch.cuda.device_count()
+    args.scale = [float(x) for x in args.scale.split(',')]
+
     if 'SLURM_JOB_ID' in os.environ:
         cmd = 'scontrol show hostnames ' + os.getenv('SLURM_JOB_NODELIST')
         stdout = subprocess.check_output(cmd.split())
@@ -121,7 +124,6 @@ def main_worker(gpu, args):
             if args.rotation:
                 rotated_images, rotated_labels = rotate_images(y3, gpu)
 
-
             adjust_learning_rate(args, optimizer, loader, step)
             optimizer.zero_grad()
             with torch.cuda.amp.autocast():
@@ -133,7 +135,7 @@ def main_worker(gpu, args):
                     # print("rotated_labels", rotated_labels)
                     rot_loss = torch.nn.functional.cross_entropy(logits, rotated_labels)
                     loss += args.rotation * rot_loss
-        
+
             scaler.scale(loss).backward()
             scaler.step(optimizer)
             scaler.update()
@@ -149,7 +151,6 @@ def main_worker(gpu, args):
                     print(json.dumps(stats))
                     print(json.dumps(stats), file=stats_file)
 
-
         if args.rank == 0:
             # save checkpoint
             state = dict(epoch=epoch + 1, model=model.state_dict(),
@@ -161,8 +162,7 @@ def main_worker(gpu, args):
         torch.save(dict(backbone=model.module.backbone.state_dict(),
                         projector=model.module.projector.state_dict(),
                         head=model.module.online_head.state_dict()),
-                        args.checkpoint_dir / 'resnet50.pth')
-
+                   args.checkpoint_dir / 'resnet50.pth')
 
 
 def adjust_learning_rate(args, optimizer, loader, step):
@@ -252,6 +252,7 @@ class BarlowTwins(nn.Module):
         logits = self.rotation_projector(b)
         return logits
 
+
 class LARS(optim.Optimizer):
     def __init__(self, params, lr, weight_decay=0, momentum=0.9, eta=0.001,
                  weight_decay_filter=False, lars_adaptation_filter=False):
@@ -259,7 +260,6 @@ class LARS(optim.Optimizer):
                         eta=eta, weight_decay_filter=weight_decay_filter,
                         lars_adaptation_filter=lars_adaptation_filter)
         super().__init__(params, defaults)
-
 
     def exclude_bias_and_norm(self, p):
         return p.ndim == 1
@@ -292,7 +292,6 @@ class LARS(optim.Optimizer):
                 mu.mul_(g['momentum']).add_(dp)
 
                 p.add_(mu, alpha=-g['lr'])
-
 
 
 class GaussianBlur(object):
@@ -333,7 +332,7 @@ class Transform:
             Solarization(p=0.0),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                std=[0.229, 0.224, 0.225])
+                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_prime = transforms.Compose([
             transforms.RandomResizedCrop(224, interpolation=Image.BICUBIC),
@@ -348,10 +347,10 @@ class Transform:
             Solarization(p=0.2),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                std=[0.229, 0.224, 0.225])
+                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_rotation = transforms.Compose([
-            transforms.RandomResizedCrop(96, scale=(0.08, 1)),  # 64 to fit in memory
+            transforms.RandomResizedCrop(96, scale=(args.scale[0], args.scale[1])),  # 96 to fit in memory
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
                 [transforms.ColorJitter(brightness=0.4, contrast=0.4,
@@ -363,7 +362,7 @@ class Transform:
             Solarization(p=0.0),
             transforms.ToTensor(),
             transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                                std=[0.229, 0.224, 0.225])
+                                 std=[0.229, 0.224, 0.225])
         ])
 
     def __call__(self, x):

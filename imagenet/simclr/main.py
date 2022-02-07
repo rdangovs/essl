@@ -37,11 +37,13 @@ parser.add_argument('--checkpoint-dir', type=Path,
                     metavar='DIR', help='path to checkpoint directory')
 parser.add_argument('--rotation', default=0.4, type=float,
                     help="coefficient of rotation loss")
+parser.add_argument('--scale', default='0.05,0.14', type=str)
 
 
 def main():
     args = parser.parse_args()
     args.ngpus_per_node = torch.cuda.device_count()
+    args.scale = [float(x) for x in args.scale.split(',')]
     if 'SLURM_JOB_ID' in os.environ:
         cmd = 'scontrol show hostnames ' + os.getenv('SLURM_JOB_NODELIST')
         stdout = subprocess.check_output(cmd.split())
@@ -312,7 +314,7 @@ class Transform:
                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_rotation = transforms.Compose([
-            transforms.RandomResizedCrop(96, scale=(0.08, 1.0)),
+            transforms.RandomResizedCrop(96, scale=(args.scale[0], args.scale[1])),
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
                 [transforms.ColorJitter(brightness=0.4, contrast=0.4,

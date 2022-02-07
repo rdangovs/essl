@@ -1,3 +1,9 @@
+# Equivariant SimSiam
+
+This sub-repo is an implementation of E-SimSiam, the E-SSL version of SimSiam. 
+We based our code on the official implementation of [SimSiam](https://github.com/facebookresearch/simsiam).
+You can use the training and evaluation scripts to obtain a SimSiam baseline and our E-SimSiam improvement.
+
 ### Training 
 ```
 python main.py \

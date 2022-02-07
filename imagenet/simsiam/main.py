@@ -84,10 +84,12 @@ parser.add_argument('--fix-pred-lr', action='store_true', default=True,
                     help='Fix learning rate for the predictor')
 parser.add_argument('--checkpoint-dir', type=str)
 parser.add_argument('--rotation', default=0.0, type=float)
+parser.add_argument('--scale', default='0.05,0.14', type=str)
 
 
 def main():
     args = parser.parse_args()
+    args.scale = [float(x) for x in args.scale.split(',')]
 
     if args.seed is not None:
         random.seed(args.seed)
@@ -394,7 +396,7 @@ class Transform:
                                 std=[0.229, 0.224, 0.225])
         ])
         self.transform_rotation = transforms.Compose([
-            transforms.RandomResizedCrop(96, scale=(0.05, 0.14)),
+            transforms.RandomResizedCrop(96, scale=(args.scale[0], args.scale[1])),
             transforms.RandomHorizontalFlip(),
             transforms.RandomApply(
                 [transforms.ColorJitter(brightness=0.4, contrast=0.4,
