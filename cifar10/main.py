@@ -9,6 +9,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torch.cuda.amp import autocast, GradScaler
 
 import torchvision
 import torchvision.transforms as T
@@ -247,6 +248,7 @@ def ssl_loop(args, encoder=None):
     start = time.time()
     os.makedirs(args.path_dir, exist_ok=True)
     torch.save(dict(epoch=0, state_dict=main_branch.state_dict()), os.path.join(args.path_dir, '0.pth'))
+    scaler = GradScaler()
 
     # training
     for e in range(1, args.epochs + 1):
@@ -269,38 +271,52 @@ def ssl_loop(args, encoder=None):
             if args.loss == 'simsiam':
                 predictor.zero_grad()
 
-            x1 = inputs[0].cuda()
-            x2 = inputs[1].cuda()
-            b1 = backbone(x1)
-            b2 = backbone(x2)
-            z1 = projector(b1)
-            z2 = projector(b2)
+            def forward_step():
+                x1 = inputs[0].cuda()
+                x2 = inputs[1].cuda()
+                b1 = backbone(x1)
+                b2 = backbone(x2)
+                z1 = projector(b1)
+                z2 = projector(b2)
 
-            # forward pass
-            if args.loss == 'simclr':
-                loss = info_nce_loss(z1, z2) / 2 + info_nce_loss(z2, z1) / 2
-            elif args.loss == 'simsiam':
-                p1 = predictor(z1)
-                p2 = predictor(z2)
-                loss = negative_cosine_similarity_loss(p1, z2) / 2 + negative_cosine_similarity_loss(p2, z1) / 2
-            else:
-                raise
+                # forward pass
+                if args.loss == 'simclr':
+                    loss = info_nce_loss(z1, z2) / 2 + info_nce_loss(z2, z1) / 2
+                elif args.loss == 'simsiam':
+                    p1 = predictor(z1)
+                    p2 = predictor(z2)
+                    loss = negative_cosine_similarity_loss(p1, z2) / 2 + negative_cosine_similarity_loss(p2, z1) / 2
+                else:
+                    raise
 
-            if args.lmbd > 0:
-                rotated_images, rotated_labels = rotate_images(inputs[2])
-                b = backbone(rotated_images)
-                logits = main_branch.predictor2(b)
-                rot_loss = F.cross_entropy(logits, rotated_labels)
-                loss += args.lmbd * rot_loss
+                if args.lmbd > 0:
+                    rotated_images, rotated_labels = rotate_images(inputs[2])
+                    b = backbone(rotated_images)
+                    logits = main_branch.predictor2(b)
+                    rot_loss = F.cross_entropy(logits, rotated_labels)
+                    loss += args.lmbd * rot_loss
+                return loss
 
             # optimization step
-            loss.backward()
-            optimizer.step()
+            if args.fp16:
+                with autocast():
+                    loss = forward_step()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss = forward_step()
+                loss.backward()
+                optimizer.step()
 
             if args.loss == 'simsiam':
                 pred_optimizer.step()
 
-        knn_acc = knn_loop(backbone, memory_loader, test_loader)
+        if args.fp16:
+            with autocast():
+                knn_acc = knn_loop(backbone, memory_loader, test_loader)
+        else:
+            knn_acc = knn_loop(backbone, memory_loader, test_loader)
 
         line_to_print = (
             f'epoch: {e} | knn_acc: {knn_acc:.3f} | '
@@ -334,7 +350,7 @@ def eval_loop(encoder, file_to_update, ind=None):
         normalize
     ])
 
-    train_loader = torch.utils.data.dataLoader(
+    train_loader = torch.utils.data.DataLoader(
         dataset=torchvision.datasets.CIFAR10('../data', train=True, transform=train_transform, download=True),
         shuffle=True,
         batch_size=256,
@@ -342,7 +358,7 @@ def eval_loop(encoder, file_to_update, ind=None):
         num_workers=args.num_workers,
         drop_last=True
     )
-    test_loader = torch.utils.data.dataLoader(
+    test_loader = torch.utils.data.DataLoader(
         dataset=torchvision.datasets.CIFAR10('../data', train=False, transform=test_transform, download=True),
         shuffle=False,
         batch_size=256,
@@ -358,6 +374,7 @@ def eval_loop(encoder, file_to_update, ind=None):
         lr=30,
         weight_decay=0
     )
+    scaler = GradScaler()
 
     # training
     for e in range(1, 101):
@@ -375,21 +392,38 @@ def eval_loop(encoder, file_to_update, ind=None):
                                  step=it)
             # zero grad
             classifier.zero_grad()
-            with torch.no_grad():
-                b = encoder(inputs.cuda())
-            logits = classifier(b)
-            loss = F.cross_entropy(logits, y.cuda())
+
+            def forward_step():
+                with torch.no_grad():
+                    b = encoder(inputs.cuda())
+                logits = classifier(b)
+                loss = F.cross_entropy(logits, y.cuda())
+                return loss
+
             # optimization step
-            loss.backward()
-            optimizer.step()
+            if args.fp16:
+                with autocast():
+                    loss = forward_step()
+                scaler.scale(loss).backward()
+                scaler.step(optimizer)
+                scaler.update()
+            else:
+                loss = forward_step()
+                loss.backward()
+                optimizer.step()
 
         if e % 10 == 0:
             accs = []
             classifier.eval()
             for idx, (images, labels) in enumerate(test_loader):
                 with torch.no_grad():
-                    b = encoder(images.cuda())
-                    preds = classifier(b).argmax(dim=1)
+                    if args.fp16:
+                        with autocast():
+                            b = encoder(images.cuda())
+                            preds = classifier(b).argmax(dim=1)
+                    else:
+                        b = encoder(images.cuda())
+                        preds = classifier(b).argmax(dim=1)
                     hits = (preds == labels.cuda()).sum().item()
                     accs.append(hits / b.shape[0])
             accuracy = np.mean(accs) * 100
@@ -432,6 +466,7 @@ if __name__ == '__main__':
     parser.add_argument('--lmbd', default=0.0, type=float)
     parser.add_argument('--num_workers', default=16, type=int)
     parser.add_argument('--checkpoint_path', default=None, type=str)
+    parser.add_argument('--fp16', action='store_true')
     args = parser.parse_args()
 
     main(args)
