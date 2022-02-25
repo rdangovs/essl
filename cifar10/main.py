@@ -306,14 +306,13 @@ def ssl_loop(args, encoder=None):
                 scaler.update()
                 if args.loss == 'simsiam':
                     scaler.step(pred_optimizer)
-                    
+
             else:
                 loss = forward_step()
                 loss.backward()
                 optimizer.step()
-
-            if args.loss == 'simsiam':
-                pred_optimizer.step()
+                if args.loss == 'simsiam':
+                    pred_optimizer.step()
 
         if args.fp16:
             with autocast():
