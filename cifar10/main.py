@@ -304,6 +304,9 @@ def ssl_loop(args, encoder=None):
                 scaler.scale(loss).backward()
                 scaler.step(optimizer)
                 scaler.update()
+                if args.loss == 'simsiam':
+                    scaler.step(pred_optimizer)
+                    
             else:
                 loss = forward_step()
                 loss.backward()
