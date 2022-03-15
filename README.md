@@ -26,6 +26,8 @@ corresponding datasets.
 *[Let us know](mailto:rumenrd@mit.edu,ljing@fb.com,cloh@mit.edu,sh3264@columbia.edu,akashsri@mit.edu,cheungb@mit.edu,pulkitag@mit.edu,soljacic@mit.edu?subject=[GitHub]%20E-SSL%20)
 about interesting work with E-SSL and we will spread the word here.*
 
+*Our work is accepted at ICLR 2022. Please, follow [the project's webpage](http://super-ms.mit.edu/essl.html) for updates.*
+
 ### License
 
 This project is released under MIT License, which allows commercial use. See [LICENSE](LICENSE) for details.
