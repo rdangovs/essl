@@ -28,6 +28,8 @@ about interesting work with E-SSL and we will spread the word here.*
 
 *Our work is accepted at ICLR 2022. Please, follow [the project's webpage](http://super-ms.mit.edu/essl.html) for updates.*
 
+*Equivariant Contrastive Learning helps to achieve state-of-the-art results among unsupervised sentence representation learning methods via the [DiffCSE's method](https://github.com/voidism/DiffCSE).*
+
 ### License
 
 This project is released under MIT License, which allows commercial use. See [LICENSE](LICENSE) for details.
