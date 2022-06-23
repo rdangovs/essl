@@ -9,7 +9,7 @@ Code for SimCLR baselines and E-SimCLR for a regression task in photonics scienc
 
 ### Prerequisites
 
-Please download the ["Blob" and "Gpm" photonic crystals datasets](https://www.dropbox.com/sh/vvrszis4zpfniok/AADH-98EwGC6qfIULr_xPNfUa?dl=0). For more information on generating the datasets, refer to our [previous work](https://github.com/clott3/SIB-CL) 
+Please download the ["Blob" and "Gpm" photonic crystals datasets](https://www.dropbox.com/sh/5y3ky9xadhiims2/AAA6acLbLUiVbfcFHDoTElSSa?dl=0). For more information on generating the datasets, refer to our [previous work](https://github.com/clott3/SIB-CL) 
 (simulations and calculations use the [Python MPB package](https://mpb.readthedocs.io/en/latest/) and MATLAB).
 
 The code was last tested with PyTorch 1.8.0 on a single V100 32GB GPU.
